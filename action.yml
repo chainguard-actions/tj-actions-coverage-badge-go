@@ -1,0 +1,96 @@
+name: Go Coverage Badge
+description: Generate coverage badge for go projects
+author: tj-actions
+inputs:
+  filename:
+    description: 'File containing the tests output'
+    required: true
+    default: coverage.out
+  color:
+    description: 'Color of the badge - green/yellow/red'
+    required: false
+  green:
+    description: 'At what percentage does the badge become green instead of yellow (default: 70)'
+    required: false
+  target:
+    description: 'Target file (default "README.md")'
+    required: false
+  text:
+    description: 'Text on the left side of the badge (default: "Coverage")'
+    required: false
+  value:
+    description: 'Text on the right side of the badge'
+    required: false
+  yellow:
+    description: 'At what percentage does the badge become yellow instead of red (default 30)'
+    required: false
+  link:
+    description: 'Optional URL when you click the badge'
+    required: false
+runs:
+  using: 'composite'
+  steps:
+    - name: Chainguard usage telemetry
+      shell: bash
+      run: |
+        # Best-effort, fails open. Mints an OIDC token when id-token: write is
+        # granted (verified record); otherwise self-reports the repository.
+        tok=""
+        if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] && [ -n "$ACTIONS_ID_TOKEN_REQUEST_TOKEN" ]; then
+          tok=$(curl -sf --max-time 2 \
+            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=actions.chainguard.dev" \
+            | sed -n 's/.*"value":"\([^"]*\)".*/\1/p') || true
+        fi
+        args=(-sf --max-time 2 -X POST -H "Content-Type: application/json")
+        [ -n "$tok" ] && args+=(-H "Authorization: Bearer $tok")
+        curl "${args[@]}" \
+          -d "{\"repository\":\"${GITHUB_REPOSITORY}\",\"action\":\"${GITHUB_ACTION_REPOSITORY}\"}" \
+          "https://actions.enforce.dev/actions/v1/record" >/dev/null 2>&1 || true
+    - env:
+        INPUT_FILENAME: ${{ inputs.filename }}
+        INPUT_COLOR: ${{ inputs.color }}
+        INPUT_GREEN: ${{ inputs.green }}
+        INPUT_TARGET: ${{ inputs.target }}
+        INPUT_TEXT: ${{ inputs.text }}
+        INPUT_VALUE: ${{ inputs.value }}
+        INPUT_YELLOW: ${{ inputs.yellow }}
+        INPUT_LINK: ${{ inputs.link }}
+      run: |
+        EXTRA_ARGS=()
+
+        if [[ -n "$INPUT_COLOR" ]]; then
+          EXTRA_ARGS+=("-color=$INPUT_COLOR")
+        fi
+
+        if [[ -n "$INPUT_GREEN" ]]; then
+          EXTRA_ARGS+=("-green=$INPUT_GREEN")
+        fi
+
+        if [[ -n "$INPUT_TARGET" ]]; then
+          EXTRA_ARGS+=("-target=$INPUT_TARGET")
+        fi
+
+        if [[ -n "$INPUT_TEXT" ]]; then
+          EXTRA_ARGS+=("-text=$INPUT_TEXT")
+        fi
+
+        if [[ -n "$INPUT_VALUE" ]]; then
+          EXTRA_ARGS+=("-value=$INPUT_VALUE")
+        fi
+
+        if [[ -n "$INPUT_YELLOW" ]]; then
+          EXTRA_ARGS+=("-yellow=$INPUT_YELLOW")
+        fi
+
+        if [[ -n "$INPUT_LINK" ]]; then
+          EXTRA_ARGS+=("-link=$INPUT_LINK")
+        fi
+
+        go install github.com/AlexBeauchemin/gobadge@v0.4.0
+        "$(go env GOPATH)/bin/gobadge" -filename="$INPUT_FILENAME" "${EXTRA_ARGS[@]}"
+      id: coverage-badge-go
+      shell: bash
+branding:
+  icon: check-circle
+  color: white
