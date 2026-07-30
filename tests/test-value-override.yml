@@ -1,0 +1,53 @@
+name: Test coverage badge with value override
+on:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version: '1.21'
+
+      - name: Create coverage.out file
+        run: |
+          cat > coverage.out << 'EOF'
+          mode: atomic
+          github.com/example/mypackage/main.go:10.13,12.2 1 1
+          github.com/example/mypackage/main.go:14.13,16.2 1 0
+          EOF
+
+      - name: Create README.md with badge placeholder
+        run: |
+          cat > README.md << 'EOF'
+          # My Project
+
+          ![Coverage](https://img.shields.io/badge/Coverage-0%25-red)
+
+          ## Description
+          EOF
+
+      - id: action
+        uses: .
+        with:
+          filename: coverage.out
+          value: "85.5%"
+          yellow: "40"
+          green: "80"
+
+      - name: Assert README.md was updated with badge containing overridden value
+        run: |
+          echo "README.md contents:"
+          cat README.md
+          if ! grep -q "85.5" README.md; then
+            echo "FAIL: README.md does not contain the overridden value '85.5'"
+            exit 1
+          fi
+          if ! grep -q "img.shields.io" README.md; then
+            echo "FAIL: README.md does not contain shields.io badge URL"
+            exit 1
+          fi
+          echo "PASS: README.md contains badge with overridden value"

@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  test:
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-latest, windows-latest, macos-latest]
+
+    name: Test coverage-badge-go
+    steps:
+      - name: Checkout
+        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false # otherwise, the token used is the GITHUB_TOKEN, instead of your personal access token.
+
+      - name: golangci-lint
+        uses: reviewdog/action-golangci-lint@c76cceaaab89abe74e649d2e34c6c9adc26662d2 # v2
+        with:
+          workdir: test
+          go_version_file: 'test/go.mod'
+
+      - name: Setup go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: 'test/go.mod'
+          cache: false
+
+      - name: Run Test
+        run:
+          make test
+        working-directory: test
+
+      - name: Run coverage-badge-go
+        uses: ./
+        with:
+          filename: test/coverage.out
+          link: ${{ github.server_url }}/${{ github.repository }}/actions/workflows/test.yml
+
+      - name: Verify Changed files
+        uses: tj-actions/verify-changed-files@d774a4c7ebe335445d79c7b44138f56a76058ba0 # v19
+        id: verify-changed-files
+        with:
+          files: README.md
+
+      - name: README.md changed
+        if: steps.verify-changed-files.outputs.files_changed == 'true' && github.event_name != 'pull_request' && runner.os == 'Linux'
+        run: |
+          echo "README.md has uncommited changes"
+          exit 1
+
+      - name: Create Pull Request
+        if: failure() && github.event_name != 'pull_request' && runner.os == 'Linux'
+        uses: peter-evans/create-pull-request@c5a7806660adbe173f04e3e038b0ccdcd758773c # v6
+        with:
+          base: "main"
+          title: "chore: updated coverage badge"
+          branch: "chore/update-coverage"
+          commit-message: "chore: updated coverage badge"
+          body: "updated coverage badge"
+          token: ${{ secrets.PAT_TOKEN }}
