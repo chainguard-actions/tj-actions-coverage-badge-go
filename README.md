@@ -6,10 +6,10 @@ Hardened by [Chainguard](https://www.chainguard.dev) from the upstream action at
 
 ## Versions
 
-| Version | Tag | Upstream commit |
-|---------|-----|-----------------|
-| v3 | [`v3`](https://github.com/chainguard-actions/tj-actions-coverage-badge-go/tree/v3) | [`481919e`](https://github.com/tj-actions/coverage-badge-go/commit/481919ec72da287775fef015fd9011dc75a5db05) |
-| v3.0.0 | [`v3.0.0`](https://github.com/chainguard-actions/tj-actions-coverage-badge-go/tree/v3.0.0) | [`481919e`](https://github.com/tj-actions/coverage-badge-go/commit/481919ec72da287775fef015fd9011dc75a5db05) |
+| Version | Tag | Upstream commit | Hardening report |
+|---------|-----|-----------------|------------------|
+| v3 | [`v3`](https://github.com/chainguard-actions/tj-actions-coverage-badge-go/tree/v3) | [`481919e`](https://github.com/tj-actions/coverage-badge-go/commit/481919ec72da287775fef015fd9011dc75a5db05) | [`HARDENING.md`](https://github.com/chainguard-actions/tj-actions-coverage-badge-go/blob/v3/HARDENING.md) |
+| v3.0.0 | [`v3.0.0`](https://github.com/chainguard-actions/tj-actions-coverage-badge-go/tree/v3.0.0) | [`481919e`](https://github.com/tj-actions/coverage-badge-go/commit/481919ec72da287775fef015fd9011dc75a5db05) | [`HARDENING.md`](https://github.com/chainguard-actions/tj-actions-coverage-badge-go/blob/v3.0.0/HARDENING.md) |
 
 ## Privacy
 
