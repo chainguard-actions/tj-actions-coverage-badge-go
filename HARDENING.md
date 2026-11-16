@@ -4,54 +4,26 @@
 
 > This file was generated automatically by the hardening agent.
 
-**Policy SHA:** `d636be7e43ef829af6e853da6b3c7566db9f72fe`
+**Policy SHA:** `374911c4be584df24e6da57af2d990570ef0f859`
 
 **Test Policy SHA:** `843adf9e4b8f85d0c08b27b9d0b09dd094b54702`
 
-**Harden Agent Version:** `1`
+**Harden Agent Version:** `2`
 
-Action **tj-actions--coverage-badge-go/v3** was hardened automatically. 16 finding(s) were identified and resolved across 2 iteration(s).
+Action **tj-actions--coverage-badge-go/v3** was hardened automatically. 17 finding(s) were identified and resolved across 1 iteration(s).
 
 ## Findings Fixed
 
 ### script-injection (severity: high)
 
-The composite action's single `run:` block in action.yml directly interpolates `${{ inputs.* }}` expressions into shell command strings (rule a). GitHub Actions substitutes these values before the shell parses the script, so a caller supplying a value containing shell metacharacters (`;`, `|`, `$(...)`, backticks, etc.) achieves arbitrary command execution on the runner. All eight inputs are affected:
-- Line 36: `if [[ -n '${{ inputs.color }}'  ]]; then`
-- Line 37: `EXTRA_ARGS="${EXTRA_ARGS} -color=${{ inputs.color }}"`
-- Line 40: `if [[ -n '${{ inputs.green }}'  ]]; then`
-- Line 41: `EXTRA_ARGS="${EXTRA_ARGS} -green=${{ inputs.green }}"`
-- Line 44: `if [[ -n '${{ inputs.target }}'  ]]; then`
-- Line 45: `EXTRA_ARGS="${EXTRA_ARGS} -target=${{ inputs.target }}"`
-- Line 48: `if [[ -n '${{ inputs.text }}'  ]]; then`
-- Line 49: `EXTRA_ARGS="${EXTRA_ARGS} -text=${{ inputs.text }}"`
-- Line 52: `if [[ -n '${{ inputs.value }}'  ]]; then`
-- Line 53: `EXTRA_ARGS="${EXTRA_ARGS} -value=${{ inputs.value }}"`
-- Line 56: `if [[ -n '${{ inputs.yellow }}'  ]]; then`
-- Line 57: `EXTRA_ARGS="${EXTRA_ARGS} -yellow=${{ inputs.yellow }}"`
-- Line 60: `if [[ -n '${{ inputs.link }}'  ]]; then`
-- Line 61: `EXTRA_ARGS="${EXTRA_ARGS} -link=${{ inputs.link }}"`
-- Line 65: `$(go env GOPATH)/bin/gobadge -filename=${{ inputs.filename }} $EXTRA_ARGS`
-
-Fix: move each input into an `env:` variable and reference it as a quoted shell variable (e.g. `"$INPUT_COLOR"`) inside the `run:` block.
+Rule (a): the composite step 'coverage-badge-go' puts expressions straight into the run: script, e.g. `if [[ -n '${{ inputs.color }}' ]]; then`, `EXTRA_ARGS="${EXTRA_ARGS} -color=${{ inputs.color }}"` (the same for green, target, text, value, yellow and link), and `$(go env GOPATH)/bin/gobadge -filename=${{ inputs.filename }} $EXTRA_ARGS`. An input containing a quote, ;, $() or backticks becomes shell code. Rule (b): `$EXTRA_ARGS` is built from those inputs and expanded unquoted with no shellcheck directive, so any metacharacters or whitespace in the inputs reach the gobadge command line. Fix: move each input into env: (e.g. INPUT_COLOR: ${{ inputs.color }}), build the arguments as a bash array (args+=("-color=$INPUT_COLOR")), and call "$(go env GOPATH)/bin/gobadge" -filename="$INPUT_FILENAME" "${args[@]}".
 
 Locations:
 
-- `action.yml:36`
+- `action.yml:34`
 - `action.yml:37`
-- `action.yml:40`
-- `action.yml:41`
-- `action.yml:44`
-- `action.yml:45`
-- `action.yml:48`
-- `action.yml:49`
-- `action.yml:52`
-- `action.yml:53`
-- `action.yml:56`
-- `action.yml:57`
-- `action.yml:60`
-- `action.yml:61`
-- `action.yml:65`
+- `action.yml:38`
+- `action.yml:66`
 
 ### static-inline-injection (severity: high)
 
@@ -173,21 +145,102 @@ Locations:
 
 - `action.yml:66`
 
+### prior-fix (severity: high)
+
+Carried forward from this version's previous harden, which fixed it; fix it again unless the code no longer has the problem. The previous harden changed action.yml without recording a finding for it, and this analysis reported nothing there. Re-apply its security changes unless the code no longer needs them. The previous patch:
+```diff
+diff --git a/action.yml b/action.yml
+index 7e4c4b2..aa80573 100644
+--- a/action.yml
++++ b/action.yml
+@@ -27,46 +27,70 @@ inputs:
+   link:
+     description: 'Optional URL when you click the badge'
+     required: false
+-
+ runs:
+   using: 'composite'
+   steps:
+-    - run: |
+-        EXTRA_ARGS=""
++    - env:
++        INPUT_FILENAME: ${{ inputs.filename }}
++        INPUT_COLOR: ${{ inputs.color }}
++        INPUT_GREEN: ${{ inputs.green }}
++        INPUT_TARGET: ${{ inputs.target }}
++        INPUT_TEXT: ${{ inputs.text }}
++        INPUT_VALUE: ${{ inputs.value }}
++        INPUT_YELLOW: ${{ inputs.yellow }}
++        INPUT_LINK: ${{ inputs.link }}
++      run: |
++        EXTRA_ARGS=()
+ 
+-        if [[ -n '${{ inputs.color }}'  ]]; then
+-          EXTRA_ARGS="${EXTRA_ARGS} -color=${{ inputs.color }}"
++        if [[ -n "$INPUT_COLOR" ]]; then
++          EXTRA_ARGS+=("-color=$INPUT_COLOR")
+         fi
+ 
+-        if [[ -n '${{ inputs.green }}'  ]]; then
+-          EXTRA_ARGS="${EXTRA_ARGS} -green=${{ inputs.green }}"
++        if [[ -n "$INPUT_GREEN" ]]; then
++          EXTRA_ARGS+=("-green=$INPUT_GREEN")
+         fi
+ 
+-        if [[ -n '${{ inputs.target }}'  ]]; then
+-          EXTRA_ARGS="${EXTRA_ARGS} -target=${{ inputs.target }}"
++        if [[ -n "$INPUT_TARGET" ]]; then
++          EXTRA_ARGS+=("-target=$INPUT_TARGET")
+         fi
+ 
+-        if [[ -n '${{ inputs.text }}'  ]]; then
+-          EXTRA_ARGS="${EXTRA_ARGS} -text=${{ inputs.text }}"
++        if [[ -n "$INPUT_TEXT" ]]; then
++          EXTRA_ARGS+=("-text=$INPUT_TEXT")
+         fi
+ 
+-        if [[ -n '${{ inputs.value }}'  ]]; then
+-          EXTRA_ARGS="${EXTRA_ARGS} -value=${{ inputs.value }}"
++        if [[ -n "$INPUT_VALUE" ]]; then
++          EXTRA_ARGS+=("-value=$INPUT_VALUE")
+         fi
+ 
+-        if [[ -n '${{ inputs.yellow }}'  ]]; then
+-          EXTRA_ARGS="${EXTRA_ARGS} -yellow=${{ inputs.yellow }}"
++        if [[ -n "$INPUT_YELLOW" ]]; then
++          EXTRA_ARGS+=("-yellow=$INPUT_YELLOW")
+         fi
+ 
+-        if [[ -n '${{ inputs.link }}'  ]]; then
+-          EXTRA_ARGS="${EXTRA_ARGS} -link=${{ inputs.link }}"
++        if [[ -n "$INPUT_LINK" ]]; then
++          EXTRA_ARGS+=("-link=$INPUT_LINK")
+         fi
+-        
++
+         go install github.com/AlexBeauchemin/gobadge@v0.4.0
+-        $(go env GOPATH)/bin/gobadge -filename=${{ inputs.filename }} $EXTRA_ARGS
++        "$(go env GOPATH)/bin/gobadge" -filename="$INPUT_FILENAME" "${EXTRA_ARGS[@]}"
+       id: coverage-badge-go
+       shell: bash
+-
+ branding:
+   icon: check-circle
+   color: white
+
+```
+
+Locations:
+
+- `action.yml`
+
 ## Iteration Notes
 
 ### Iteration 1
 
-**Fixes applied:** script-injection, static-inline-injection
+**Fixes applied:** script-injection, static-inline-injection, prior-fix
 
 **Notes:**
 
-Moved all eight ${{ inputs.* }} expressions (filename, color, green, target, text, value, yellow, link) from the run: block into a step-level env: block as INPUT_FILENAME, INPUT_COLOR, INPUT_GREEN, INPUT_TARGET, INPUT_TEXT, INPUT_VALUE, INPUT_YELLOW, and INPUT_LINK. The run: script now references only these plain environment variables (e.g. "$INPUT_COLOR", "$INPUT_FILENAME"), eliminating all shell-injection vectors.
-
-### Iteration 2
-
-**Fixes applied:** script-injection
-
-**Notes:**
-
-Fixed the unquoted `$EXTRA_ARGS` shell variable expansion in action.yml (line 68). Changed `EXTRA_ARGS` from a string to a bash array. Each optional argument is now appended as a separate quoted array element (e.g., `EXTRA_ARGS+=("-color=$INPUT_COLOR")`). The final gobadge invocation now uses `"${EXTRA_ARGS[@]}"` (properly quoted array expansion) instead of the unquoted `$EXTRA_ARGS`, preventing word-splitting and shell metacharacter injection from user-controlled inputs. Also added quotes around the `$(go env GOPATH)/bin/gobadge` command substitution for robustness.
+Moved all inputs (filename, color, green, target, text, value, yellow, link) into the step env: block; replaced string-built EXTRA_ARGS with a bash array of single quoted '-flag=value' args; gobadge invoked with quoted path, filename, and "${EXTRA_ARGS[@]}". Re-applies the previous harden's patch.
 
