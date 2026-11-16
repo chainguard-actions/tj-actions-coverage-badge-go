@@ -4,100 +4,25 @@
 
 > This file was generated automatically by the hardening agent.
 
-**Policy SHA:** `d636be7e43ef829af6e853da6b3c7566db9f72fe`
+**Policy SHA:** `374911c4be584df24e6da57af2d990570ef0f859`
 
 **Test Policy SHA:** `843adf9e4b8f85d0c08b27b9d0b09dd094b54702`
 
 **Harden Agent Version:** `2`
 
-Action **tj-actions--coverage-badge-go/v3.0.0** was hardened automatically. 18 finding(s) were identified and resolved across 2 iteration(s).
+Action **tj-actions--coverage-badge-go/v3.0.0** was hardened automatically. 17 finding(s) were identified and resolved across 1 iteration(s).
 
 ## Findings Fixed
 
 ### script-injection (severity: high)
 
-Sub-rule (a): The composite action's single `run:` block directly interpolates multiple `${{ inputs.* }}` expressions inside shell command strings without routing them through env vars. An attacker-controlled caller can supply values containing shell metacharacters (`;`, `|`, `$(...)`, etc.) that will be executed by the shell. Offending lines include:
-- `if [[ -n '${{ inputs.color }}'  ]]; then` (and similar for inputs.green, inputs.target, inputs.text, inputs.value, inputs.yellow, inputs.link)
-- `EXTRA_ARGS="${EXTRA_ARGS} -color=${{ inputs.color }}"`  (and similar for all other inputs)
-- `$(go env GOPATH)/bin/gobadge -filename=${{ inputs.filename }} $EXTRA_ARGS`
-All 15 expression interpolations in this step are direct script-injection risks.
+Rule (a): the composite step 'coverage-badge-go' in action.yml puts GitHub Actions expressions straight into the run: script. These include inputs.color, inputs.green, inputs.target, inputs.text, inputs.value, inputs.yellow, inputs.link and inputs.filename. Examples: `if [[ -n '${{ inputs.color }}'  ]]; then`, `EXTRA_ARGS="${EXTRA_ARGS} -color=${{ inputs.color }}"` and `$(go env GOPATH)/bin/gobadge -filename=${{ inputs.filename }} $EXTRA_ARGS`. The calling workflow supplies these values, and they are pasted into the script before bash runs it, so a crafted value can run arbitrary commands. Rule (b) also applies: the input-derived $EXTRA_ARGS is expanded unquoted, and this line has no shellcheck SC2086/SC2206 directive. Fix: move each input into the step's env: block, quote every expansion, and build the arguments in a bash array.
 
 Locations:
 
-- `action.yml:31`
-
-### unpinned-uses (severity: high)
-
-Multiple workflow files reference GitHub Actions and third-party actions by mutable tags or version strings instead of full 40-character commit SHAs. Unpinned references are vulnerable to supply-chain attacks if the tag is moved or the repository is compromised.
-
-codacy-analysis.yml:
-- `codacy/codacy-analysis-cli-action@v4.4.0`
-- `github/codeql-action/upload-sarif@v3`
-
-codeql.yml:
-- `github/codeql-action/init@v3`
-- `github/codeql-action/autobuild@v3`
-- `github/codeql-action/analyze@v3`
-
-rebase.yml:
-- `cirrus-actions/rebase@1.8`
-
-sync-release-version.yml:
-- `tj-actions/release-tagger@v4`
-- `tj-actions/sync-release-version@v13`
-- `tj-actions/git-cliff@v1`
-- `peter-evans/create-pull-request@v6.0.5`
-
-test.yml:
-- `reviewdog/action-golangci-lint@v2`
-- `actions/setup-go@v5`
-- `tj-actions/verify-changed-files@v19`
-- `peter-evans/create-pull-request@v6`
-
-update-readme.yml:
-- `tj-actions/auto-doc@v3`
-- `tj-actions/remark@v3`
-- `tj-actions/verify-changed-files@v19`
-- `peter-evans/create-pull-request@v6`
-
-Locations:
-
-- `.github/workflows/codacy-analysis.yml:34`
-- `.github/workflows/codacy-analysis.yml:44`
-- `.github/workflows/codeql.yml:40`
-- `.github/workflows/codeql.yml:53`
-- `.github/workflows/codeql.yml:67`
-- `.github/workflows/rebase.yml:14`
-- `.github/workflows/sync-release-version.yml:13`
-- `.github/workflows/sync-release-version.yml:15`
-- `.github/workflows/sync-release-version.yml:18`
-- `.github/workflows/sync-release-version.yml:21`
-- `.github/workflows/test.yml:26`
-- `.github/workflows/test.yml:31`
-- `.github/workflows/test.yml:44`
-- `.github/workflows/test.yml:52`
-- `.github/workflows/update-readme.yml:15`
-- `.github/workflows/update-readme.yml:18`
-- `.github/workflows/update-readme.yml:22`
-- `.github/workflows/update-readme.yml:32`
-
-### missing-permissions (severity: medium)
-
-Five workflow files have no top-level `permissions:` key and no job-level `permissions:` key on any of their jobs. Without explicit permissions, workflows run with the default (often write) token permissions, violating the principle of least privilege.
-
-- codacy-analysis.yml: no permissions at top level or on job `codacy-security-scan`
-- rebase.yml: no permissions at top level or on job `rebase`
-- sync-release-version.yml: no permissions at top level or on job `update-version`
-- test.yml: no permissions at top level or on job `test`
-- update-readme.yml: no permissions at top level or on job `sync-assets`
-
-Locations:
-
-- `.github/workflows/codacy-analysis.yml:1`
-- `.github/workflows/rebase.yml:1`
-- `.github/workflows/sync-release-version.yml:1`
-- `.github/workflows/test.yml:1`
-- `.github/workflows/update-readme.yml:1`
+- `action.yml:37`
+- `action.yml:38`
+- `action.yml:66`
 
 ### static-inline-injection (severity: high)
 
@@ -219,24 +144,102 @@ Locations:
 
 - `action.yml:66`
 
+### prior-fix (severity: high)
+
+Carried forward from this version's previous harden, which fixed it; fix it again unless the code no longer has the problem. The previous harden changed action.yml without recording a finding for it, and this analysis reported nothing there. Re-apply its security changes unless the code no longer needs them. The previous patch:
+```diff
+diff --git a/action.yml b/action.yml
+index 7e4c4b2..d687f6c 100644
+--- a/action.yml
++++ b/action.yml
+@@ -27,46 +27,70 @@ inputs:
+   link:
+     description: 'Optional URL when you click the badge'
+     required: false
+-
+ runs:
+   using: 'composite'
+   steps:
+-    - run: |
+-        EXTRA_ARGS=""
++    - env:
++        INPUT_FILENAME: ${{ inputs.filename }}
++        INPUT_COLOR: ${{ inputs.color }}
++        INPUT_GREEN: ${{ inputs.green }}
++        INPUT_TARGET: ${{ inputs.target }}
++        INPUT_TEXT: ${{ inputs.text }}
++        INPUT_VALUE: ${{ inputs.value }}
++        INPUT_YELLOW: ${{ inputs.yellow }}
++        INPUT_LINK: ${{ inputs.link }}
++      run: |
++        EXTRA_ARGS=()
+ 
+-        if [[ -n '${{ inputs.color }}'  ]]; then
+-          EXTRA_ARGS="${EXTRA_ARGS} -color=${{ inputs.color }}"
++        if [[ -n "$INPUT_COLOR" ]]; then
++          EXTRA_ARGS+=("-color=$INPUT_COLOR")
+         fi
+ 
+-        if [[ -n '${{ inputs.green }}'  ]]; then
+-          EXTRA_ARGS="${EXTRA_ARGS} -green=${{ inputs.green }}"
++        if [[ -n "$INPUT_GREEN" ]]; then
++          EXTRA_ARGS+=("-green=$INPUT_GREEN")
+         fi
+ 
+-        if [[ -n '${{ inputs.target }}'  ]]; then
+-          EXTRA_ARGS="${EXTRA_ARGS} -target=${{ inputs.target }}"
++        if [[ -n "$INPUT_TARGET" ]]; then
++          EXTRA_ARGS+=("-target=$INPUT_TARGET")
+         fi
+ 
+-        if [[ -n '${{ inputs.text }}'  ]]; then
+-          EXTRA_ARGS="${EXTRA_ARGS} -text=${{ inputs.text }}"
++        if [[ -n "$INPUT_TEXT" ]]; then
++          EXTRA_ARGS+=("-text=$INPUT_TEXT")
+         fi
+ 
+-        if [[ -n '${{ inputs.value }}'  ]]; then
+-          EXTRA_ARGS="${EXTRA_ARGS} -value=${{ inputs.value }}"
++        if [[ -n "$INPUT_VALUE" ]]; then
++          EXTRA_ARGS+=("-value=$INPUT_VALUE")
+         fi
+ 
+-        if [[ -n '${{ inputs.yellow }}'  ]]; then
+-          EXTRA_ARGS="${EXTRA_ARGS} -yellow=${{ inputs.yellow }}"
++        if [[ -n "$INPUT_YELLOW" ]]; then
++          EXTRA_ARGS+=("-yellow=$INPUT_YELLOW")
+         fi
+ 
+-        if [[ -n '${{ inputs.link }}'  ]]; then
+-          EXTRA_ARGS="${EXTRA_ARGS} -link=${{ inputs.link }}"
++        if [[ -n "$INPUT_LINK" ]]; then
++          EXTRA_ARGS+=("-link=$INPUT_LINK")
+         fi
+-        
++
+         go install github.com/AlexBeauchemin/gobadge@v0.4.0
+-        $(go env GOPATH)/bin/gobadge -filename=${{ inputs.filename }} $EXTRA_ARGS
++        $(go env GOPATH)/bin/gobadge -filename="$INPUT_FILENAME" "${EXTRA_ARGS[@]}"
+       id: coverage-badge-go
+       shell: bash
+-
+ branding:
+   icon: check-circle
+   color: white
+
+```
+
+Locations:
+
+- `action.yml`
+
 ## Iteration Notes
 
 ### Iteration 1
 
-**Fixes applied:** script-injection, static-inline-injection, unpinned-uses, missing-permissions
+**Fixes applied:** script-injection, static-inline-injection, prior-fix
 
 **Notes:**
 
-Fixed all findings:
-1. script-injection/static-inline-injection in action.yml: Moved all 8 `${{ inputs.* }}` expressions (color, green, target, text, value, yellow, link, filename) into an `env:` block on the step. The shell script now references them as plain env vars ($INPUT_COLOR, etc.), eliminating all 15 injection points.
-2. unpinned-uses: Pinned all 18 unpinned action references across codacy-analysis.yml, codeql.yml, rebase.yml, sync-release-version.yml, test.yml, and update-readme.yml to full 40-character commit SHAs with original tags preserved in comments.
-3. missing-permissions: Added top-level `permissions:` blocks to codacy-analysis.yml (contents:read, security-events:write), rebase.yml (contents:write, pull-requests:read), sync-release-version.yml (contents:write, pull-requests:write), test.yml (contents:write, pull-requests:write), and update-readme.yml (contents:write, pull-requests:write). Note: codeql.yml already had job-level permissions so it was not listed in the missing-permissions finding.
-
-### Iteration 2
-
-**Fixes applied:** script-injection
-
-**Notes:**
-
-Fixed the unquoted $EXTRA_ARGS expansion in the gobadge invocation by converting from a string variable to a bash array. Each optional flag is now appended as a separate array element (e.g., EXTRA_ARGS+=("-color=$INPUT_COLOR")), and the final command uses "${EXTRA_ARGS[@]}" to expand each element as a properly-quoted, separate argument. This prevents shell metacharacter injection through user-controlled inputs (color, green, target, text, value, yellow, link) while preserving correct argument passing semantics.
+Moved all inputs (filename, color, green, target, text, value, yellow, link) into the step env: block; replaced string EXTRA_ARGS with a bash array of single-value '-flag=value' entries; quoted the gobadge invocation and -filename. Re-applies the previous harden patch.
 

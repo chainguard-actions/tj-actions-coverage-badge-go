@@ -27,6 +27,7 @@ inputs:
   link:
     description: 'Optional URL when you click the badge'
     required: false
+
 runs:
   using: 'composite'
   steps:
@@ -88,9 +89,10 @@ runs:
         fi
 
         go install github.com/AlexBeauchemin/gobadge@v0.4.0
-        $(go env GOPATH)/bin/gobadge -filename="$INPUT_FILENAME" "${EXTRA_ARGS[@]}"
+        "$(go env GOPATH)/bin/gobadge" -filename="$INPUT_FILENAME" "${EXTRA_ARGS[@]}"
       id: coverage-badge-go
       shell: bash
+
 branding:
   icon: check-circle
   color: white
